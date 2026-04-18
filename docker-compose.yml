@@ -1,0 +1,22 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: omkalitycraft-api-app
+    restart: always
+    command: .venv/bin/granian --interface asgi src.api.app:app --host ${API_HOST} --port ${API_PORT} --workers ${WORKERS_NUM} --log --access-log
+    env_file:
+      - .env
+    ports:
+      - "${API_PORT}:${API_PORT}"
+    volumes:
+      - ./src:/backend/src
+      - ./scripts:/backend/scripts
+      - ${HOST_CONTENT_ROOT}:${CONTENT_ROOT}:ro
+    healthcheck:
+      test: curl -f http://localhost:${API_PORT}/health
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s

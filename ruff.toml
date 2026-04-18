@@ -1,0 +1,49 @@
+cache-dir = ".ruff_cache"
+line-length = 120
+show-fixes = true
+target-version = "py314"
+
+[lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "C4",
+    "SIM",
+    "PL",
+    "RUF",
+]
+
+ignore = [
+    "B008",
+    "PLR0913",
+    "PLR2004",
+]
+
+fixable = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "UP",
+    "B",
+    "C4",
+    "SIM",
+    "RUF",
+]
+
+[lint.per-file-ignores]
+"client/*.py" = ["PLR0912"]
+"scripts/*.py" = ["T201"]
+
+[lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+
+[lint.pylint]
+max-args = 6
+max-returns = 8
