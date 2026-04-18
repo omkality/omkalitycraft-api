@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from litestar import get
 
-from ..core.storage import ensure_exists, launcher_manifest_path, read_json
+from src.core.storage import ensure_exists, launcher_manifest_path, read_json
 
 
 @get("/launcher/manifest", sync_to_thread=True)

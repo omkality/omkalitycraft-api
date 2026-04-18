@@ -1,0 +1,30 @@
+{
+  "content_id": "divinejourney2",
+  "kind": "instance",
+  "source_root": "data/content/instances/divinejourney2/files",
+  "manifest_path": "data/content/instances/divinejourney2/manifest.json",
+  "managed_roots": [
+    "asm/",
+    "assets/",
+    "astralsorcery/",
+    "config/",
+    "mods/",
+    "mods-resourcepacks/",
+    "mputils/",
+    "patchouli_books/",
+    "resourcepacks/",
+    "resources/",
+    "scripts/",
+    "structures/",
+    "TombManyGraves/",
+    "vintagefix/",
+    ".curseclient",
+    "LICENSE",
+    "manifest.json",
+    "minecraftinstance.json",
+    "modlist.html",
+    "options.txt",
+    "patchouli_data.json",
+    "servers.dat"
+  ]
+}

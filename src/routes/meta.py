@@ -3,9 +3,9 @@ from __future__ import annotations
 from litestar import get
 from litestar.response import Redirect
 
-from ..core.config import settings
-from ..core.project import get_project_info
-from ..core.storage import content_root, instances_root
+from src.core.project import get_project_info
+from src.core.storage import content_root, instances_root
+from src.settings.config import settings
 
 
 @get("/", sync_to_thread=True)

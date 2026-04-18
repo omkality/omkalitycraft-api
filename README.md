@@ -106,6 +106,7 @@ uv run python scripts/stage_launcher_content.py --source-root C:\Users\omka\Proj
 
 Скрипт копирует bootstrap-файлы лаунчера, `divinejourney2`, создаёт
 `instance_config.json`, `launch_profile.json` и генерирует manifest-файлы.
+Правила берутся из `src/settings`.
 
 После запуска API можно проверить endpoints:
 
@@ -137,14 +138,26 @@ python launcher.py
 Манифест лаунчера:
 
 ```powershell
-uv run python scripts/generate_manifest.py --source-root data/content/launcher/files --manifest-path data/content/launcher/manifest.json --content-id launcher --kind launcher
+uv run python scripts/generate_manifest.py launcher
 ```
 
 Манифест инстанса:
 
 ```powershell
-uv run python scripts/generate_manifest.py --source-root data/content/instances/<instance_id>/files --manifest-path data/content/instances/<instance_id>/manifest.json --content-id <instance_id> --kind instance --managed-root mods --managed-root config --managed-root servers.dat
+uv run python scripts/generate_manifest.py instance divinejourney2
 ```
+
+Настройки manifest, `instance_config` и `launch_profile` лежат здесь:
+
+```text
+src/settings/launcher/manifest.json
+src/settings/instances/divinejourney2/manifest.json
+src/settings/instances/divinejourney2/instance_config.json
+src/settings/instances/divinejourney2/launch_profile.json
+```
+
+Например, JVM-память меняется в `launch_profile.json`, а правила игнора и
+soft-managed файлов — в `instance_config.json`.
 
 ## Документация API
 

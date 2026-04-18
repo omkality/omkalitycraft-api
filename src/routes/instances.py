@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from litestar import get
 
-from ..core.storage import (
+from src.core.storage import (
     ensure_exists,
     instance_config_path,
     instance_manifest_path,

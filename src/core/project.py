@@ -12,7 +12,11 @@ class ProjectInfo(TypedDict):
 
 
 def get_project_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "pyproject.toml").exists():
+            return parent
+
+    raise RuntimeError("Project root with pyproject.toml was not found")
 
 
 def get_project_info() -> ProjectInfo:

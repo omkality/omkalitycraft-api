@@ -6,7 +6,7 @@ from typing import Any
 
 from litestar.exceptions import HTTPException
 
-from .config import settings
+from src.settings.config import settings
 
 
 def content_root() -> Path:

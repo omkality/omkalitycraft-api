@@ -1,0 +1,14 @@
+{
+  "content_id": "launcher",
+  "kind": "launcher",
+  "source_root": "data/content/launcher/files",
+  "manifest_path": "data/content/launcher/manifest.json",
+  "managed_roots": [
+    "assets/",
+    "jre-x64-new/",
+    "libraries/",
+    "versions/",
+    "launcher.py"
+  ],
+  "ignored_paths": []
+}

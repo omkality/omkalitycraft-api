@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import shutil
 import sys
 from pathlib import Path
@@ -11,61 +10,14 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.generate_manifest import build_manifest  # noqa: E402
-
-LAUNCHER_MANAGED_ROOTS = [
-    "assets/",
-    "jre-x64-new/",
-    "libraries/",
-    "versions/",
-    "launcher.py",
-]
-
-INSTANCE_MANAGED_ROOTS = [
-    "asm/",
-    "assets/",
-    "astralsorcery/",
-    "config/",
-    "mods/",
-    "mods-resourcepacks/",
-    "mputils/",
-    "patchouli_books/",
-    "resourcepacks/",
-    "resources/",
-    "scripts/",
-    "structures/",
-    "TombManyGraves/",
-    "vintagefix/",
-    ".curseclient",
-    "LICENSE",
-    "manifest.json",
-    "minecraftinstance.json",
-    "modlist.html",
-    "patchouli_data.json",
-    "servers.dat",
-]
-
-INSTANCE_IGNORED_PREFIXES = [
-    "crash-reports/",
-    "dumps/",
-    "journeymap/",
-    "local/",
-    "logs/",
-    "saves/",
-    "screenshots/",
-    "BotaniaVars.dat",
-    "crafttweaker.log",
-    "knownkeys.txt",
-    "options.txt",
-    "roots.log",
-    "usercache.json",
-    "usernamecache.json",
-]
-
-INSTANCE_SOFT_MANAGED_PATHS = [
-    "config/",
-    "options.txt",
-]
+from scripts.generate_manifest import write_manifest  # noqa: E402
+from src.settings.content import (  # noqa: E402
+    get_instance_config,
+    get_instance_manifest_settings,
+    get_launch_profile,
+    get_launcher_manifest_settings,
+    resolve_project_path,
+)
 
 
 def copy_path(source: Path, destination: Path) -> None:
@@ -90,25 +42,6 @@ def copy_existing_paths(
         copy_path(source, destination_root / normalized)
 
 
-def extract_classpath_from_run_bat(
-    run_bat_path: Path, launcher_root: Path
-) -> list[str]:
-    content = run_bat_path.read_text(encoding="utf-8", errors="ignore")
-    entries: list[str] = []
-
-    for match in re.finditer(r'set "CP=!CP!;(?P<path>[^"]+)"', content):
-        entry = match.group("path")
-        entry = entry.replace("!LIBS!\\", "libraries\\")
-        entry = entry.replace("!VERS!\\", "versions\\")
-        normalized_entry = entry.replace("\\", "/")
-        if not (launcher_root / normalized_entry).exists():
-            print(f"Skip missing classpath entry: {normalized_entry}")
-            continue
-        entries.append(normalized_entry)
-
-    return entries
-
-
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as file:
@@ -116,84 +49,32 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
         file.write("\n")
 
 
-def write_manifest(
-    source_root: Path,
-    manifest_path: Path,
-    content_id: str,
-    kind: str,
-    managed_roots: list[str],
-    ignored_prefixes: list[str],
-) -> None:
-    manifest = build_manifest(
-        source_root=source_root,
-        ignored_prefixes=ignored_prefixes,
-        managed_roots=managed_roots,
-        content_id=content_id,
-        kind=kind,
-    )
-    write_json(manifest_path, manifest)
+def get_ignored_paths(instance_config: dict[str, Any]) -> list[str]:
+    ignored_paths = instance_config.get("ignored_paths", [])
+    if not isinstance(ignored_paths, list):
+        raise RuntimeError("instance_config.json field 'ignored_paths' must be a list")
 
-    print(f"Manifest written to: {manifest_path}")
-    print(f"Files: {len(manifest['files'])}")
-    print(f"Total size: {manifest['total_size']} bytes")
+    return [str(path) for path in ignored_paths]
 
 
-def build_instance_config(instance_id: str) -> dict[str, Any]:
-    return {
-        "id": instance_id,
-        "display_name": "Divine Journey 2",
-        "description": "Divine Journey 2 modpack with OmkalityCore",
-        "ignored_paths": INSTANCE_IGNORED_PREFIXES,
-        "soft_managed_paths": INSTANCE_SOFT_MANAGED_PATHS,
-        "delete_extra_files_in_managed_paths": True,
-    }
+def validate_classpath(source_root: Path, launch_profile: dict[str, Any]) -> None:
+    classpath = launch_profile.get("classpath", [])
+    if not isinstance(classpath, list):
+        raise RuntimeError("launch_profile.json field 'classpath' must be a list")
 
-
-def build_launch_profile(classpath: list[str]) -> dict[str, Any]:
-    return {
-        "java_path_relative": "jre-x64-new/bin/java.exe",
-        "native_library_path_relative": "versions/divinejourney2/natives",
-        "main_class": "net.minecraft.launchwrapper.Launch",
-        "classpath": classpath,
-        "jvm_args": [
-            "-Xms8G",
-            "-Xmx12G",
-            "-XX:+UseG1GC",
-            "-Dfml.ignoreInvalidMinecraftCertificates=true",
-            "-Dfml.ignorePatchDiscrepancies=true",
-        ],
-        "game_args": [
-            "--username",
-            "{username}",
-            "--version",
-            "{instance_id}",
-            "--gameDir",
-            "{game_dir}",
-            "--assetsDir",
-            "{assets_dir}",
-            "--assetIndex",
-            "1.12",
-            "--uuid",
-            "{uuid}",
-            "--accessToken",
-            "0",
-            "--userType",
-            "mojang",
-            "--versionType",
-            "release",
-            "--tweakClass",
-            "net.minecraftforge.fml.common.launcher.FMLTweaker",
-        ],
-        "system_properties": {
-            "omkality.password": "{password}",
-        },
-    }
+    missing = [
+        str(path) for path in classpath if not (source_root / str(path)).exists()
+    ]
+    if missing:
+        missing_text = "\n".join(f"- {path}" for path in missing)
+        raise RuntimeError(
+            f"Launch profile contains missing classpath entries:\n{missing_text}"
+        )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-root", required=True)
-    parser.add_argument("--content-root", default="data/content")
     parser.add_argument("--instance-id", default="divinejourney2")
     return parser.parse_args()
 
@@ -201,55 +82,65 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     source_root = Path(args.source_root).resolve()
-    content_root = Path(args.content_root).resolve()
     instance_id = str(args.instance_id)
 
-    launcher_files_root = content_root / "launcher" / "files"
-    instance_root = content_root / "instances" / instance_id
-    instance_files_root = instance_root / "files"
-    client_launcher_path = (
-        Path(__file__).resolve().parents[1] / "client" / "launcher.py"
+    launcher_manifest_settings = get_launcher_manifest_settings()
+    instance_manifest_settings = get_instance_manifest_settings(instance_id)
+    instance_config = get_instance_config(instance_id)
+    launch_profile = get_launch_profile(instance_id)
+
+    launcher_files_root = resolve_project_path(
+        launcher_manifest_settings["source_root"]
     )
+    instance_files_root = resolve_project_path(
+        instance_manifest_settings["source_root"]
+    )
+    instance_root = resolve_project_path(
+        instance_manifest_settings["manifest_path"]
+    ).parent
+    client_launcher_path = PROJECT_ROOT / "client" / "launcher.py"
 
     if not source_root.exists():
         raise RuntimeError(f"Source launcher root not found: {source_root}")
 
-    print(f"Source launcher root: {source_root}")
-    print(f"Target content root: {content_root}")
+    validate_classpath(source_root, launch_profile)
 
-    copy_existing_paths(source_root, launcher_files_root, LAUNCHER_MANAGED_ROOTS[:-1])
+    print(f"Source launcher root: {source_root}")
+    print(f"Launcher files root: {launcher_files_root}")
+    print(f"Instance files root: {instance_files_root}")
+
+    launcher_paths = [
+        path
+        for path in launcher_manifest_settings["managed_roots"]
+        if path != "launcher.py"
+    ]
+    copy_existing_paths(source_root, launcher_files_root, launcher_paths)
     copy_path(client_launcher_path, launcher_files_root / "launcher.py")
 
     copy_existing_paths(
         source_root / "instances" / instance_id,
         instance_files_root,
-        INSTANCE_MANAGED_ROOTS,
+        instance_manifest_settings["managed_roots"],
     )
 
-    classpath = extract_classpath_from_run_bat(source_root / "run.bat", source_root)
-    if not classpath:
-        raise RuntimeError("Classpath was not extracted from run.bat")
-
-    write_json(
-        instance_root / "instance_config.json", build_instance_config(instance_id)
-    )
-    write_json(instance_root / "launch_profile.json", build_launch_profile(classpath))
+    write_json(instance_root / "instance_config.json", instance_config)
+    write_json(instance_root / "launch_profile.json", launch_profile)
 
     write_manifest(
-        source_root=launcher_files_root,
-        manifest_path=content_root / "launcher" / "manifest.json",
-        content_id="launcher-root",
-        kind="launcher",
-        managed_roots=LAUNCHER_MANAGED_ROOTS,
-        ignored_prefixes=[],
+        source_root=resolve_project_path(launcher_manifest_settings["source_root"]),
+        manifest_path=resolve_project_path(launcher_manifest_settings["manifest_path"]),
+        content_id=launcher_manifest_settings["content_id"],
+        kind=launcher_manifest_settings["kind"],
+        managed_roots=launcher_manifest_settings["managed_roots"],
+        ignored_paths=[],
     )
     write_manifest(
-        source_root=instance_files_root,
-        manifest_path=instance_root / "manifest.json",
-        content_id=instance_id,
-        kind="instance",
-        managed_roots=INSTANCE_MANAGED_ROOTS,
-        ignored_prefixes=INSTANCE_IGNORED_PREFIXES,
+        source_root=resolve_project_path(instance_manifest_settings["source_root"]),
+        manifest_path=resolve_project_path(instance_manifest_settings["manifest_path"]),
+        content_id=instance_manifest_settings["content_id"],
+        kind=instance_manifest_settings["kind"],
+        managed_roots=instance_manifest_settings["managed_roots"],
+        ignored_paths=get_ignored_paths(instance_config),
     )
 
 

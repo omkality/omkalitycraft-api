@@ -1,16 +1,16 @@
 from litestar import Litestar
 from litestar.openapi import OpenAPIConfig
 
-from .core.project import get_project_info
-from .routes.download import download_instance_file, download_launcher_file
-from .routes.instances import (
+from src.core.project import get_project_info
+from src.routes.download import download_instance_file, download_launcher_file
+from src.routes.instances import (
     get_instance_config,
     get_instance_manifest,
     get_launch_profile,
     list_instances,
 )
-from .routes.launcher import get_launcher_manifest
-from .routes.meta import docs_redirect, health, version
+from src.routes.launcher import get_launcher_manifest
+from src.routes.meta import docs_redirect, health, version
 
 project_info = get_project_info()
 

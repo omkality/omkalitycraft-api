@@ -3,8 +3,21 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.settings.content import (  # noqa: E402
+    ManifestSettings,
+    get_instance_config,
+    get_instance_manifest_settings,
+    get_launcher_manifest_settings,
+    resolve_project_path,
+)
 
 
 def sha256_of_file(path: Path) -> str:
@@ -63,35 +76,75 @@ def build_manifest(
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--source-root", required=True)
-    parser.add_argument("--manifest-path", required=True)
-    parser.add_argument("--content-id", required=True)
-    parser.add_argument("--kind", choices=["launcher", "instance"], required=True)
-    parser.add_argument("--managed-root", action="append", default=[])
-    parser.add_argument("--ignore-prefix", action="append", default=[])
+def get_manifest_settings(kind: str, instance_id: str | None) -> ManifestSettings:
+    if kind == "launcher":
+        return get_launcher_manifest_settings()
 
-    args = parser.parse_args()
+    if instance_id is None:
+        raise RuntimeError("Instance id is required for instance manifest")
 
-    source_root = Path(args.source_root).resolve()
-    manifest_path = Path(args.manifest_path).resolve()
+    return get_instance_manifest_settings(instance_id)
 
+
+def get_ignored_paths(kind: str, instance_id: str | None) -> list[str]:
+    if kind == "launcher":
+        return []
+
+    if instance_id is None:
+        raise RuntimeError("Instance id is required for instance manifest")
+
+    config = get_instance_config(instance_id)
+    ignored_paths: Any = config.get("ignored_paths", [])
+    if not isinstance(ignored_paths, list):
+        raise RuntimeError("instance_config.json field 'ignored_paths' must be a list")
+
+    return [str(path) for path in ignored_paths]
+
+
+def write_manifest(
+    source_root: Path,
+    manifest_path: Path,
+    content_id: str,
+    kind: str,
+    managed_roots: list[str],
+    ignored_paths: list[str],
+) -> None:
     manifest = build_manifest(
         source_root=source_root,
-        ignored_prefixes=args.ignore_prefix,
-        managed_roots=args.managed_root,
-        content_id=args.content_id,
-        kind=args.kind,
+        ignored_prefixes=ignored_paths,
+        managed_roots=managed_roots,
+        content_id=content_id,
+        kind=kind,
     )
 
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     with manifest_path.open("w", encoding="utf-8") as file:
         json.dump(manifest, file, indent=2, ensure_ascii=False)
+        file.write("\n")
 
     print(f"Manifest written to: {manifest_path}")
     print(f"Files: {len(manifest['files'])}")
     print(f"Total size: {manifest['total_size']} bytes")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("kind", choices=["launcher", "instance"])
+    parser.add_argument("instance_id", nargs="?")
+
+    args = parser.parse_args()
+    kind = str(args.kind)
+    instance_id = args.instance_id
+    settings = get_manifest_settings(kind, instance_id)
+
+    write_manifest(
+        source_root=resolve_project_path(settings["source_root"]),
+        manifest_path=resolve_project_path(settings["manifest_path"]),
+        content_id=settings["content_id"],
+        kind=settings["kind"],
+        managed_roots=settings["managed_roots"],
+        ignored_paths=get_ignored_paths(kind, instance_id),
+    )
 
 
 if __name__ == "__main__":

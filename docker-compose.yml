@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: omkalitycraft-api-app
     restart: always
-    command: .venv/bin/granian --interface asgi src.api.app:app --host ${API_HOST} --port ${API_PORT} --workers ${WORKERS_NUM} --log --access-log
+    command: .venv/bin/granian --interface asgi src.app:app --host ${API_HOST} --port ${API_PORT} --workers ${WORKERS_NUM} --log --access-log
     env_file:
       - .env
     ports:
